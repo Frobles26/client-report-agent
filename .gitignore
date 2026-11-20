@@ -1,0 +1,21 @@
+# Secrets: keep API keys and passwords out of Git
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Generated reports (keep the folder, not the files)
+output/*
+!output/.gitkeep
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

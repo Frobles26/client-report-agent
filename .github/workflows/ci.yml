@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: report_agent
+          POSTGRES_PASSWORD: ci_password
+          POSTGRES_DB: report_agent
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U report_agent"
+          --health-interval 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://report_agent:ci_password@localhost:5433/report_agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install -e ".[dev]"
+      - name: Load schema
+        run: |
+          for f in sql/*.sql; do
+            PGPASSWORD=ci_password psql -h localhost -p 5433 -U report_agent -d report_agent -v ON_ERROR_STOP=1 -f "$f"
+          done
+      - name: Lint
+        run: ruff check src tests
+      - name: Test
+        run: pytest -v

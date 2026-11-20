@@ -1,0 +1,22 @@
+services:
+  db:
+    image: postgres:16
+    container_name: report_agent_db
+    environment:
+      POSTGRES_USER: report_agent
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      POSTGRES_DB: report_agent
+    ports:
+      # 5433 on your machine so it never clashes with another local PostgreSQL
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Runs the SQL files in order the first time the database is created
+      - ./sql:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U report_agent -d report_agent"]
+      interval: 5s
+      retries: 10
+
+volumes:
+  pgdata:
