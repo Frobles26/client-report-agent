@@ -22,6 +22,7 @@ jobs:
           --health-retries 10
     env:
       DATABASE_URL: postgresql+psycopg://report_agent:ci_password@localhost:5433/report_agent
+      RUN_DB_WRITE_TESTS: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
