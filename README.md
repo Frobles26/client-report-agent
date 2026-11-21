@@ -4,7 +4,16 @@ An AI agent that turns one plain-English request into a checked Excel workbook a
 
 > Build the Q3 2026 performance pack for the Canadian Equity strategy vs. the S&P/TSX Composite, for a pension client.
 
-**Status:** in progress. Day 1 (setup and database schema) is done.
+**Status:** in progress. Done: setup and schema (Day 1), data pipeline (Day 2).
+
+## Load the data
+
+```bash
+python -m report_agent.etl.make_holdings   # creates the fictional portfolio (data/sample/holdings.csv)
+python -m report_agent.etl.run_pipeline    # first run loads history from 2024-01-01
+```
+
+After the first run, `run_pipeline` reloads only the last 10 days. Every step is recorded in `ops.runs`.
 
 ## How it works
 
