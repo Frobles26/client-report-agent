@@ -4,7 +4,7 @@ An AI agent that turns one plain-English request into a checked Excel workbook a
 
 > Build the Q3 2026 performance pack for the Canadian Equity strategy vs. the S&P/TSX Composite, for a pension client.
 
-**Status:** in progress. Done: setup and schema (Day 1), data pipeline (Day 2).
+**Status:** in progress. Done: setup and schema (Day 1), data pipeline (Day 2), return and risk analytics (Day 3).
 
 ## Load the data
 
@@ -13,7 +13,17 @@ python -m report_agent.etl.make_holdings   # creates the fictional portfolio (da
 python -m report_agent.etl.run_pipeline    # first run loads history from 2024-01-01
 ```
 
-After the first run, `run_pipeline` reloads only the last 10 days. Every step is recorded in `ops.runs`.
+After the first run, `run_pipeline` reloads only the last 10 days, then recalculates the daily strategy returns in `fact.strategy_returns`. Every step is recorded in `ops.runs`.
+
+## Check the numbers
+
+```bash
+python -m report_agent.analytics.summary --start 2026-07-01 --end 2026-09-30
+```
+
+Prints the performance table (period, year to date, 1 year, since inception), risk statistics over the year to the end date (volatility, Sharpe ratio, max drawdown, beta, tracking error, information ratio), sector weights and the top 10 holdings.
+
+Methods: returns are compounded daily and annualized only for periods over one year; risk statistics use 252 trading days; the risk-free rate is the Bank of Canada 3-month T-bill yield. All returns are price returns (dividends excluded) for both the portfolio and the index.
 
 ## How it works
 

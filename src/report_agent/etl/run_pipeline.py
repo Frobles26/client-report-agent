@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from report_agent.analytics.data import build_fact_returns
 from report_agent.config import BENCHMARK_TICKER, BOC_SERIES, HISTORY_START
 from report_agent.db import get_engine
 from report_agent.etl import extract, load
@@ -63,6 +64,10 @@ def run(start: str, price_fetcher=extract.fetch_prices, boc_fetcher=extract.fetc
         log.warning("Big one-day move to review: %s", item)
     for ticker, days in report.missing_days.items():
         log.warning("%s is missing %s trading days", ticker, days)
+
+    with load.log_run(engine, "fact_strategy_returns") as info:
+        info["rows_loaded"] = sum(build_fact_returns(engine, sid) for sid in strategies["strategy_id"])
+    log.info("Daily strategy returns calculated (%s rows)", info["rows_loaded"])
 
 
 def main() -> None:
