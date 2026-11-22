@@ -4,7 +4,7 @@ An AI agent that turns one plain-English request into a checked Excel workbook a
 
 > Build the Q3 2026 performance pack for the Canadian Equity strategy vs. the S&P/TSX Composite, for a pension client.
 
-**Status:** in progress. Done: setup and schema (Day 1), data pipeline (Day 2), return and risk analytics (Day 3).
+**Status:** in progress. Done: setup and schema (Day 1), data pipeline (Day 2), return and risk analytics (Day 3), Excel workbook (Day 4).
 
 ## Load the data
 
@@ -22,6 +22,14 @@ python -m report_agent.analytics.summary --start 2026-07-01 --end 2026-09-30
 ```
 
 Prints the performance table (period, year to date, 1 year, since inception), risk statistics over the year to the end date (volatility, Sharpe ratio, max drawdown, beta, tracking error, information ratio), sector weights and the top 10 holdings.
+
+## Build the Excel workbook
+
+```bash
+python -m report_agent.outputs.excel --start 2026-07-01 --end 2026-09-30
+```
+
+Saves `output/CAN_EQ_2026-07-01_2026-09-30.xlsx` with seven tabs: Summary, Performance (with a growth-of-100 chart), Risk, Sectors (with a bar chart), Top 10, Daily and Notes. Totals, active returns, contributions and growth of 100 are live Excel formulas, and the Summary tab links to the detail tabs, so the numbers can never disagree.
 
 Methods: returns are compounded daily and annualized only for periods over one year; risk statistics use 252 trading days; the risk-free rate is the Bank of Canada 3-month T-bill yield. All returns are price returns (dividends excluded) for both the portfolio and the index.
 
