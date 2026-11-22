@@ -8,30 +8,19 @@ from datetime import date
 
 import pandas as pd
 
-from report_agent.analytics import data, risk, weights
-from report_agent.analytics.returns import performance_table
-from report_agent.db import get_engine
+from report_agent.analytics.report import build_report_data
 
 
 def build_summary(strategy_id: str, start: date, end: date) -> dict[str, pd.DataFrame]:
-    engine = get_engine()
-    strategy = data.get_strategy(engine, strategy_id)
-    inception = strategy["inception_date"]
-    history = data.get_daily_returns(engine, strategy_id, inception, end)
-    if history.empty:
-        raise SystemExit("No returns found. Run: python -m report_agent.etl.run_pipeline")
-    # Risk is measured over the year ending on `end` (or since inception if shorter):
-    # a single quarter has too few days for stable risk statistics.
-    risk_start = max(pd.Timestamp(end) - pd.DateOffset(years=1), pd.Timestamp(inception))
-    risk_window = history.loc[risk_start + pd.Timedelta(days=1):pd.Timestamp(end)]
-    rf = data.get_risk_free(engine, risk_window.index)
-    holdings = data.get_holdings(engine, strategy_id, start)
-    stock_returns = data.get_stock_returns(engine, holdings["ticker"].tolist(), start, end)
+    try:
+        report = build_report_data(strategy_id, start, end)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
     return {
-        "performance": performance_table(history, start, end, inception),
-        "risk": risk.risk_table(risk_window, rf),
-        "sectors": weights.sector_weights(holdings),
-        "top10": weights.top_holdings(holdings, stock_returns),
+        "performance": report.performance,
+        "risk": report.risk,
+        "sectors": report.sectors,
+        "top10": report.top10,
     }
 
 
