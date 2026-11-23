@@ -4,7 +4,7 @@ An AI agent that turns one plain-English request into a checked Excel workbook a
 
 > Build the Q3 2026 performance pack for the Canadian Equity strategy vs. the S&P/TSX Composite, for a pension client.
 
-**Status:** in progress. Done: setup and schema (Day 1), data pipeline (Day 2), return and risk analytics (Day 3), Excel workbook (Day 4).
+**Status:** in progress. Done: setup and schema (Day 1), data pipeline (Day 2), return and risk analytics (Day 3), Excel workbook (Day 4), PowerPoint deck (Day 5).
 
 ## Load the data
 
@@ -30,6 +30,14 @@ python -m report_agent.outputs.excel --start 2026-07-01 --end 2026-09-30
 ```
 
 Saves `output/CAN_EQ_2026-07-01_2026-09-30.xlsx` with seven tabs: Summary, Performance (with a growth-of-100 chart), Risk, Sectors (with a bar chart), Top 10, Daily and Notes. Totals, active returns, contributions and growth of 100 are live Excel formulas, and the Summary tab links to the detail tabs, so the numbers can never disagree.
+
+## Build the PowerPoint deck
+
+```bash
+python -m report_agent.outputs.deck --start 2026-07-01 --end 2026-09-30
+```
+
+Saves `output/CAN_EQ_2026-07-01_2026-09-30.pptx`, an eight-slide 16:9 client deck: cover, performance (with growth of 100), returns by period, risk, sectors, top 10 holdings, commentary and notes. Each slide title is written from the numbers, so it states the slide's main point. Charts are native PowerPoint charts, so their data can be checked and edited in PowerPoint. The commentary slide holds a placeholder until the agent writes it.
 
 Methods: returns are compounded daily and annualized only for periods over one year; risk statistics use 252 trading days; the risk-free rate is the Bank of Canada 3-month T-bill yield. All returns are price returns (dividends excluded) for both the portfolio and the index.
 
@@ -72,7 +80,7 @@ sql/                  schema and views
 src/report_agent/
   etl/                extract, validate, load
   analytics/          returns, risk, weights
-  outputs/            Excel, charts, PowerPoint
+  outputs/            Excel workbook and PowerPoint deck
   checks/             quality checks
   agent/              the agent loop and its tools
 tests/                pytest
