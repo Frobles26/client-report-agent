@@ -18,10 +18,8 @@ import pandas as pd
 from sqlalchemy import text
 
 from report_agent.analytics.report import ReportData, build_report_data
-from report_agent.outputs.deck import build_deck, pct, ratio
+from report_agent.outputs.deck import RATIO_STATS, build_deck, pct, ratio
 from report_agent.outputs.excel import build_excel
-
-RATIO_STATS = {"Sharpe ratio", "Beta", "Information ratio"}
 
 
 class ToolError(Exception):
@@ -69,6 +67,14 @@ TOOLS = [
             "properties": {"text": {"type": "string"}},
             "required": ["text"],
         },
+    },
+    {
+        "name": "run_quality_checks",
+        "description": ("Run the quality checks on the loaded report: data completeness and "
+                        "freshness, holdings weights, stuck jobs, and whether the Excel and "
+                        "deck show the same numbers as the analytics. Call it after build_deck. "
+                        "Returns each check as pass, warn or fail, and the overall result."),
+        "input_schema": {"type": "object", "properties": {}},
     },
     {
         "name": "build_deck",
@@ -185,11 +191,13 @@ class ReportSession:
     """
     report_loader: Callable[[str, date, date], ReportData] = build_report_data
     status_loader: Callable[[], dict] | None = None
+    data_checker: Callable[[str, date, date], list] | None = None
     output_dir: Path | None = None
     report: ReportData | None = None
     facts: dict | None = None
     commentary: str | None = None
     files: dict[str, str] = field(default_factory=dict)
+    checks: list[dict] = field(default_factory=list)
 
     def call(self, name: str, args: dict) -> dict:
         handlers = {
@@ -198,6 +206,7 @@ class ReportSession:
             "build_excel": self.build_excel,
             "write_commentary": self.write_commentary,
             "build_deck": self.build_deck,
+            "run_quality_checks": self.run_quality_checks,
         }
         if name not in handlers:
             raise ToolError(f"Unknown tool {name}.")
@@ -227,7 +236,8 @@ class ReportSession:
             raise ToolError(f"The period ends {end_d} but {data_end}. Pick an earlier period "
                             "or run the data pipeline first.")
         self.facts = report_facts(self.report)
-        self.commentary = None                  # commentary belongs to one report
+        self.commentary = None                  # commentary and checks belong to one report
+        self.checks = []
         return self.facts
 
     def build_excel(self) -> dict:
@@ -255,6 +265,23 @@ class ReportSession:
         path = build_deck(report, self._path(report, "pptx"), commentary=self.commentary)
         self.files["deck"] = str(path)
         return {"path": str(path)}
+
+    def run_quality_checks(self) -> dict:
+        from report_agent.checks.quality import check_files_match, data_checks, overall
+
+        report = self._require_report()
+        checker = self.data_checker or data_checks
+        results = checker(report.strategy_id, report.start, report.end)
+        results.append(check_files_match(report, self.files.get("excel"), self.files.get("deck")))
+        self.checks = [r.as_dict() for r in results]
+        return {"overall": overall(results), "checks": self.checks}
+
+    @property
+    def checks_overall(self) -> str | None:
+        if not self.checks:
+            return None
+        statuses = {c["status"] for c in self.checks}
+        return "fail" if "fail" in statuses else "warn" if "warn" in statuses else "pass"
 
     # --- helpers ---
 

@@ -47,6 +47,8 @@ WHITE = RGBColor(0xFF, 0xFF, 0xFF)
 GREEN = RGBColor(0x2E, 0x7D, 0x32)
 RED = RGBColor(0xC6, 0x28, 0x28)
 
+RATIO_STATS = {"Sharpe ratio", "Beta", "Information ratio"}   # shown as 0.00, not %
+
 SLIDE_W, SLIDE_H = 13.333, 7.5
 MARGIN = 0.6
 CONTENT_TOP = 1.75                     # where content starts under the title block
@@ -355,7 +357,7 @@ def _risk(prs, report: ReportData) -> None:
                            "too few days for stable statistics.")
     rows = [["Statistic", "Portfolio", "Benchmark"]]
     for r in report.risk.itertuples():
-        fmt = ratio if r.statistic in {"Sharpe ratio", "Beta", "Information ratio"} else pct
+        fmt = ratio if r.statistic in RATIO_STATS else pct
         rows.append([r.statistic, fmt(r.portfolio), fmt(r.benchmark)])
     _table(slide, MARGIN, CONTENT_TOP, 6.6, rows, [3.0, 1.8, 1.8], row_h=0.55)
 

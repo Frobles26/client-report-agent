@@ -4,7 +4,7 @@ An AI agent that turns one plain-English request into a checked Excel workbook a
 
 > Build the Q3 2026 performance pack for the Canadian Equity strategy vs. the S&P/TSX Composite, for a pension client.
 
-**Status:** in progress. Done: setup and schema (Day 1), data pipeline (Day 2), return and risk analytics (Day 3), Excel workbook (Day 4), PowerPoint deck (Day 5), report agent (Day 6).
+**Status:** in progress. Done: setup and schema (Day 1), data pipeline (Day 2), return and risk analytics (Day 3), Excel workbook (Day 4), PowerPoint deck (Day 5), report agent (Day 6), quality checks (Day 7).
 
 ## Load the data
 
@@ -54,6 +54,26 @@ Claude reads the request, checks which dates have data, gets the numbers, builds
 - `get_report_numbers` refuses a period that ends after the latest data.
 
 The run stops after 15 steps at most. Every step (Claude's text, each tool call, its input and result, tokens used) is saved to `output/run_log.json`, and the run is recorded in `ops.runs`. Needs `ANTHROPIC_API_KEY` in `.env`. The tests use a fake Claude client, so they need no key and cost nothing.
+
+## Quality checks
+
+```bash
+python -m report_agent.checks.quality --start 2026-07-01 --end 2026-09-30
+```
+
+Seven checks, each pass, warn or fail. A fail means the report should not go out, and the command exits with code 1 so a scheduler or CI job sees it.
+
+| Check | What it catches |
+|---|---|
+| `weights_sum_to_one` | a month-end holdings set that does not add up to 100% |
+| `data_is_fresh` | prices more than 3 business days old |
+| `prices_complete` | a holding with no price on a benchmark trading day (warn; fail over 5% of days) |
+| `returns_complete` | a trading day with no strategy return |
+| `no_extreme_moves` | a daily portfolio or benchmark move beyond 10% (warn) |
+| `no_stuck_runs` | a job left on "running" in `ops.runs` for over an hour (warn; `--fix-stuck` marks them failed) |
+| `files_match_report` | Excel or PowerPoint numbers that differ from the analytics (an overtyped cell, a stale file) |
+
+The agent runs these checks after building the files, and it may not call a report ready when a check fails. The results go into `output/run_log.json`.
 
 ## How it works
 

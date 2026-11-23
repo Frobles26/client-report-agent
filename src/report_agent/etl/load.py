@@ -114,8 +114,9 @@ def log_run(engine: Engine, job_name: str) -> Iterator[dict]:
     info: dict = {"rows_loaded": None, "message": None}
     try:
         yield info
-    except Exception as exc:
-        _finish_run(engine, run_id, "failed", info.get("rows_loaded"), str(exc)[:1000])
+    except BaseException as exc:      # includes Ctrl+C, so an interrupted run never stays 'running'
+        message = str(exc) or type(exc).__name__
+        _finish_run(engine, run_id, "failed", info.get("rows_loaded"), message[:1000])
         raise
     _finish_run(engine, run_id, "completed", info.get("rows_loaded"), info.get("message"))
 
