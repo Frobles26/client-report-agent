@@ -30,7 +30,11 @@ Work in this order:
 3. get_report_numbers for that strategy and period.
 4. build_excel.
 5. write_commentary, then build_deck.
-6. Reply with a two-sentence summary: what you built and the headline result.
+6. run_quality_checks.
+7. Reply with a short summary: what you built and the headline result. Then the checks:
+   if any check failed, say plainly that the report is NOT ready to send and name each
+   failure; if any warned, name each warning; if all passed, say so in one line.
+   Never call a report ready when a check failed.
 
 Rules:
 - Never calculate, estimate or round a number yourself. Use the figures exactly as
@@ -50,6 +54,7 @@ class AgentResult:
     status: str                       # completed / step_limit / error
     final_text: str
     files: dict[str, str]
+    checks_overall: str | None = None  # pass / warn / fail, or None if checks never ran
     steps: list[dict] = field(default_factory=list)
     log_path: Path | None = None
 
@@ -91,12 +96,16 @@ def run_agent(request: str, client, session: ReportSession | None = None,
     messages: list[dict] = [{"role": "user", "content": request}]
     steps: list[dict] = []
     started = datetime.now()
-    status, final_text = "step_limit", ""
+    status, final_text = "step_limit", ""     # completed / step_limit / error
     usage = {"input_tokens": 0, "output_tokens": 0}
 
     for step in range(1, max_steps + 1):
-        response = client.messages.create(model=model, max_tokens=2048, system=SYSTEM,
-                                          tools=TOOLS, messages=messages)
+        try:
+            response = client.messages.create(model=model, max_tokens=2048, system=SYSTEM,
+                                              tools=TOOLS, messages=messages)
+        except Exception as exc:  # noqa: BLE001 - API down, bad key, rate limit: log and stop
+            status, final_text = "error", f"Claude API error: {type(exc).__name__}: {exc}"
+            break
         content = [_block_to_dict(b) for b in response.content]
         messages.append({"role": "assistant", "content": content})
         for key in usage:
@@ -128,11 +137,13 @@ def run_agent(request: str, client, session: ReportSession | None = None,
         "finished": datetime.now().isoformat(timespec="seconds"),
         "steps_used": len(steps), "max_steps": max_steps, "usage": usage,
         "files": session.files, "commentary": session.commentary,
+        "checks_overall": session.checks_overall, "checks": session.checks,
         "final_text": final_text, "steps": steps,
     }
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log_path.write_text(json.dumps(log, indent=2, default=str), encoding="utf-8")
-    return AgentResult(status, final_text, session.files, steps, log_path)
+    return AgentResult(status, final_text, session.files, session.checks_overall, steps,
+                       log_path)
 
 
 def main() -> None:
@@ -158,7 +169,14 @@ def main() -> None:
             info["rows_loaded"] = len(result.steps)         # here: steps the agent used
             info["message"] = result.final_text[:1000]
             if result.status != "completed":
-                raise RuntimeError(f"Agent stopped: {result.status}. See {result.log_path}")
+                raise RuntimeError(f"Agent stopped: {result.status}. {result.final_text} "
+                                   f"See {result.log_path}")
+            if result.checks_overall != "pass":
+                print(f"\nQuality checks: {result.checks_overall or 'not run'}")
+            if result.checks_overall in ("fail", None):
+                raise RuntimeError(f"{result.final_text}\n\nQuality checks "
+                                   f"{result.checks_overall or 'not run'}: do not send. "
+                                   f"See {result.log_path}")
     except RuntimeError as exc:
         raise SystemExit(str(exc)) from exc
     print(f"\n{result.final_text}\n")

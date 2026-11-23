@@ -56,7 +56,7 @@ def session(report, tmp_path):
     status = {"today": "2026-11-23", "strategies": [
         {"strategy_id": "CAN_EQ", "latest_return_date": "2026-11-20"}]}
     return ReportSession(report_loader=lambda *_: report, status_loader=lambda: status,
-                         output_dir=tmp_path)
+                         data_checker=lambda *_: [], output_dir=tmp_path)
 
 
 # ---------- the number guard ----------
@@ -116,6 +116,7 @@ def test_full_run_builds_both_files_and_recovers_from_an_error(session, tmp_path
                          {"text": GOOD_COMMENTARY.replace("+1.20%", "+1.25%")}, "c1")),
         reply(tool_block("write_commentary", {"text": GOOD_COMMENTARY}, "c2")),
         reply(tool_block("build_deck")),
+        reply(tool_block("run_quality_checks")),
         reply(text_block("Built the Q3 2026 Excel and deck. The portfolio returned +1.20%.")),
     ])
     result = run_agent("Build the Q3 2026 report for CAN_EQ", client, session,
@@ -134,8 +135,11 @@ def test_full_run_builds_both_files_and_recovers_from_an_error(session, tmp_path
     assert any("Royal Bank was the largest contributor" in t for t in texts)
 
     log = json.loads(result.log_path.read_text())
-    assert log["status"] == "completed" and log["steps_used"] == 7
-    assert log["usage"] == {"input_tokens": 700, "output_tokens": 140}
+    assert log["status"] == "completed" and log["steps_used"] == 8
+    assert log["usage"] == {"input_tokens": 800, "output_tokens": 160}
+    assert result.checks_overall == "pass" and log["checks_overall"] == "pass"
+    assert log["checks"] == [{"name": "files_match_report", "status": "pass",
+                              "detail": "Excel and PowerPoint match the analytics"}]
     assert log["commentary"] == GOOD_COMMENTARY
 
 
@@ -164,3 +168,23 @@ def test_thinking_is_sent_back_unchanged_and_logged(session, tmp_path):
     assert client.requests[1][1]["content"][0] == {
         "type": "thinking", "thinking": "Q3 is Jul 1 to Sep 30.", "signature": "sig123"}
     assert result.steps[0]["thinking"] == "Q3 is Jul 1 to Sep 30."
+
+
+def test_api_error_stops_the_run_and_still_writes_the_log(session, tmp_path):
+    class BrokenClient:
+        messages = None
+
+        def __init__(self):
+            self.messages = self
+
+        def create(self, **_):
+            raise ConnectionError("network down")
+
+    result = run_agent("x", BrokenClient(), session, log_path=tmp_path / "run_log.json")
+    assert result.status == "error" and "network down" in result.final_text
+    assert json.loads(result.log_path.read_text())["status"] == "error"
+
+
+def test_checks_need_a_loaded_report(session):
+    with pytest.raises(ToolError, match="get_report_numbers first"):
+        session.run_quality_checks()
