@@ -11,6 +11,7 @@ DATABASE_URL = os.getenv(
     "postgresql+psycopg://report_agent:change_me@localhost:5433/report_agent",
 )
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL") or "claude-sonnet-5-5"   # blank means default
 
 # Bank of Canada Valet API (free, no key): https://www.bankofcanada.ca/valet/docs
 BOC_VALET_URL = "https://www.bankofcanada.ca/valet/observations/{series}/json"
